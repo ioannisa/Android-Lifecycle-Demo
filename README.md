@@ -32,6 +32,11 @@ this app's marks.
 
 All screenshots come from one session on an Android 17 (API 37) emulator, with `| tag=:LaunchDemo` added.
 
+> **Note:** We removed Logcat's date-and-time column from the left side of the screenshots, so that more
+> of each line fits on screen and the text stays readable. Each line starts with `PID-TID`, then the tag,
+> the process name, the level and the message. The timings in this README come from the full Logcat output.
+> The app's own `LaunchDemo` lines still show their time as `+…ms`.
+
 | PID | Process |
 |---|---|
 | `653` | `system_server`: ActivityTaskManager (ATMS), ActivityManager (AMS), WindowManager |
@@ -155,11 +160,11 @@ With `showPath = true`, it also writes the call path:
 
 ```kotlin
 private fun callPath(): String = Throwable().stackTrace
-    .filter { f -> keep.any { f.className.startsWith(it) } && !f.className.startsWith(LaunchTrace::class.java.name) }
-    .map { "${it.className.substringAfterLast('.')}.${it.methodName}" }
-    .distinct()
-    .reversed()
-    .joinToString("\n") { "      ↳ $it" }
+  .filter { f -> keep.any { f.className.startsWith(it) } && !f.className.startsWith(LaunchTrace::class.java.name) }
+  .map { "${it.className.substringAfterLast('.')}.${it.methodName}" }
+  .distinct()
+  .reversed()
+  .joinToString("\n") { "      ↳ $it" }
 ```
 
 It takes the current stack trace (without throwing), keeps only the frames in the `keep` list (Zygote,
