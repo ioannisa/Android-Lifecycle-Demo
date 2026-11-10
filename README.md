@@ -1,4 +1,8 @@
+![When you tap an app icon: a remarkable journey begins beneath the surface](docs/slides/tap.jpg)
+
 # Android Launch Lifecycle Demo
+
+Companion demo for the talk ***The Android Internals Deep Dive — Context, IPC Binder, Zygote***.
 
 A small app that shows what happens to an app process during its life: **cold start, rotation, background,
 hot start, and death**. The app logs each step with the tag `LaunchDemo`. One Logcat filter mixes these
@@ -55,7 +59,11 @@ Red **1–5** are the steps. Amber **3** is the main loop, inside the call paths
 
 ### Line by line
 
+Each step starts with its slide from the talk: **what happens**. The lines under it show **where you can see it** in the log.
+
 #### Step 1 · Launch request
+
+![Step 1: Launch Request (ATMS = Front Office)](docs/slides/step1-launch-request.jpg)
 
 - **`ActivityTaskManager` · `START u0 {act=…MAIN cat=[…LAUNCHER] … cmp=eu.anifantakis.myapplication/.MainActivity}`**
   (system_server) — The launcher called `startActivity()`. The call crossed into `system_server` through
@@ -67,6 +75,8 @@ Red **1–5** are the steps. Amber **3** is the main loop, inside the call paths
   ATMS is done, and only then writes its line.
 
 #### Step 2 · The identity: create the process
+
+![Step 2: Create Process - The Identity (AMS + Zygote/USAP)](docs/slides/step2-create-process.jpg)
 
 - **`Zygote` · `Forked child process 22956`** (Zygote, `433-433`) — Zygote forks itself. The child is a copy
   of Zygote: it shares Zygote's memory (Copy-on-Write), so the fork is fast.
@@ -130,12 +140,18 @@ From Step 3 on, nothing changes. To check a device: `adb shell getprop | grep us
 
 #### Step 3 · The heartbeat (amber box)
 
+![Step 3: The Heartbeat - ActivityThread sets up the main thread](docs/slides/step3-heartbeat.jpg)
+
 There is no system line for this step. The proof is the first part of the call path under
 `Application.attachBaseContext`:
 
 - **`ZygoteInit.main` → `RuntimeInit$MethodAndArgsCaller.run` → `Method.invoke`** — The app's main thread
   was Zygote's main thread. After the fork, the process continues inside Zygote's `main()`, because there is
   no `exec()`. Zygote finds the app's entry point and calls it through reflection.
+  The Step 2 slide says `ZygoteInit.zygoteInit()` → `ActivityThread.main()`. `zygoteInit()` finds
+  `ActivityThread.main`, wraps it in a small object (`MethodAndArgsCaller`) and returns. Back in
+  `ZygoteInit.main`, the child then runs it. That's why the path shows `ZygoteInit.main` and
+  `MethodAndArgsCaller.run`, but not `zygoteInit`: it had already returned.
 - **`ActivityThread.main`** — The app's entry point. It prepares the main thread's loop and tells AMS,
   through Binder, "I'm alive, here's how to call me" (not in the log).
 - **`Looper.loop` → `Looper.loopOnce` → `Handler.dispatchMessage` → `ActivityThread$H.handleMessage`** — The
@@ -146,6 +162,8 @@ There are **no Binder frames** here. When the system calls the app through Binde
 separate Binder thread. That thread only puts a message in the main thread's queue.
 
 #### Step 4 · The DNA: bindApplication
+
+![Step 4: The DNA - Attach & bindApplication (Build Application/Context)](docs/slides/step4-dna.jpg)
 
 - *Not in the log:* AMS answers "I'm alive" with `bindApplication()`. It arrives as a message for `H`.
 - **`nativeloader` · `Configuring clns-9 for other apk /data/app/…/base.apk. target_sdk_version=37, …`**
@@ -167,6 +185,8 @@ separate Binder thread. That thread only puts a message in the main thread's que
 
 #### Step 5 · The face: launch the Activity
 
+![Step 5: The Face (Launch the Activity)](docs/slides/step5-face.jpg)
+
 - *Not in the log:* AMS tells ATMS that the process is ready. ATMS sends the app a *transaction* through
   Binder: "create this Activity, then resume it".
 - **`LaunchDemo` · `▶ Activity.attachBaseContext(base = ContextImpl@c6d262f)`** — A new `ContextImpl` for the
@@ -177,7 +197,9 @@ separate Binder thread. That thread only puts a message in the main thread's que
   `performLaunchActivity` → `Instrumentation.callActivityOnCreate` → `MainActivity.onCreate`.
   `LaunchActivityItem` is the "create this Activity" part of ATMS's transaction.
 - **`LaunchDemo` · `▶ Activity.onStart`** and **`▶ Activity.onResume — window attached? false`** — The
-  Activity is resumed, but its window is not on screen yet.
+  slide's `ResumeActivityItem` is the second part of the same transaction: `TransactionExecutor` walks the
+  new Activity to *resumed*, which calls `onStart()` and `onResume()`. The Activity is resumed, but its
+  window is not on screen yet.
 
 #### ✓ · On screen
 
@@ -418,6 +440,7 @@ the order. You read it from `ZygoteInit.main` down to your callback.
 | [DemoInitProvider.kt](app/src/main/java/eu/anifantakis/myapplication/DemoInitProvider.kt) | An empty `ContentProvider`, to show that providers run before `Application.onCreate()`. |
 | [MainActivity.kt](app/src/main/java/eu/anifantakis/myapplication/MainActivity.kt) | Marks every lifecycle callback, from `onCreate` (with `saved state?`) to `onDestroy` (with `config change?` and `finishing?`). Fakes a 400 ms load, then reports "fully drawn". |
 | [AndroidManifest.xml](app/src/main/AndroidManifest.xml) | Registers the Application, the Activity and the provider. |
+| [docs/](docs) | The Logcat screenshots, and the talk's slides in `docs/slides/`. |
 
 Requirements: minSdk 28, compileSdk and targetSdk 37.
 
