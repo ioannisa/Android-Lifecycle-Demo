@@ -1,14 +1,33 @@
+# Android Internals Deep Dive
+
+**Context · Binder IPC · Zygote**
+
+Companion demo for the talk ***The Android Internals Deep Dive — Context, Binder IPC, Zygote***.
+
+**This is not another lifecycle demo.** It shows what happens *below* the lifecycle: how Android creates an
+app process. You tap an icon, and Logcat lets you follow the journey through the system:
+
+- the launcher's request reaching **ATMS** inside `system_server`, through a **Binder** call,
+- **AMS** asking **Zygote** for a new process, through Zygote's socket,
+- Zygote **forking** itself, and the child **specializing** into your app: its uid, its SELinux label,
+  its cgroup, its name,
+- the new process starting its main thread, and the system's orders arriving through Binder —
+  `bindApplication`, then the Activity transaction — as messages on that thread's loop.
+
+Most of what you see are Android's own log lines, written by `system_server` and Zygote: you get the same
+lines for **any app**. A few marks from this demo app (tag `LaunchDemo`) fill the gaps that Android does
+not log. The lifecycle callbacks appear too, but only as landmarks: they show *when* each internal step
+reaches your code.
+
+After the cold start, the same filter follows the process through a rotation, the background and a hot
+start, where you can see what does **not** happen: no fork, no new process. At the end, the system kills
+the process, and Zygote, its parent, reports the death.
+
 ![When you tap an app icon: a remarkable journey begins beneath the surface](docs/slides/tap.jpg)
 
-# Android Launch Lifecycle Demo
-
-Companion demo for the talk ***The Android Internals Deep Dive — Context, IPC Binder, Zygote***.
-
-A small app that shows what happens to an app process during its life: **cold start, rotation, background,
-hot start, and death**. The app logs each step with the tag `LaunchDemo`. One Logcat filter mixes these
-lines with Android's own lines, in order.
-
 ## Logcat filter
+
+Paste this filter into Android Studio's Logcat:
 
 ```
 (tag=:StatsLog & message~:'LAUNCHER_APP_LAUNCH_TAP|LAUNCHER_TASK_DISMISS') | (tag=:ActivityTaskManager & message~:'START u\d+|Displayed|Fully drawn|Force removing') | (tag=:ActivityManager & message~:'Start proc|Force stopping|Killing|Got obituary') | tag=:Zygote | (tag=:libprocessgroup & message:'/apps/') | (tag=:WindowManager & message~:'setClientSurface|WIN DEATH') | message:CollectorType | (tag=:nativeloader & message:'Configuring clns')
@@ -16,6 +35,10 @@ lines with Android's own lines, in order.
 
 It uses only Android's own lines, so it works for any app. Add ` | tag=:LaunchDemo` at the end to also see
 this app's marks.
+
+> **To try it:** run the app once from Android Studio, then force-stop it
+> (`adb shell am force-stop eu.anifantakis.myapplication`), clear Logcat, and **tap the app icon**.
+> Don't use the Run button: it starts the app from the shell, so the launcher's lines don't appear.
 
 ## Who is who
 
@@ -418,11 +441,11 @@ With `showPath = true`, it also writes the call path:
 
 ```kotlin
 private fun callPath(): String = Throwable().stackTrace
-    .filter { f -> keep.any { f.className.startsWith(it) } && !f.className.startsWith(LaunchTrace::class.java.name) }
-    .map { "${it.className.substringAfterLast('.')}.${it.methodName}" }
-    .distinct()
-    .reversed()
-    .joinToString("\n") { "      ↳ $it" }
+  .filter { f -> keep.any { f.className.startsWith(it) } && !f.className.startsWith(LaunchTrace::class.java.name) }
+  .map { "${it.className.substringAfterLast('.')}.${it.methodName}" }
+  .distinct()
+  .reversed()
+  .joinToString("\n") { "      ↳ $it" }
 ```
 
 It takes the current stack trace (without throwing), keeps only the frames in the `keep` list (Zygote,
