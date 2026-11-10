@@ -66,7 +66,15 @@ What each part catches, and where you see it:
 
 ## Who is who
 
-All screenshots come from one session on an Android 17 (API 37) emulator, with `| tag=:LaunchDemo` added.
+All screenshots come from one session on an Android 17 (API 37) emulator.
+
+Each section shows **two screenshots of the same moment**:
+
+- **First, Android's lines only** — the filter as it is. This is what you see for **any app**, with no code
+  in it. Gray `⋯` rows mark where the app's callbacks run without writing any system line.
+- **Then, in an expandable block, the same moment with `| tag=:LaunchDemo`** — plus this app's own marks.
+  They fill the gaps: the `Application`, the providers and every Activity callback, with their call paths.
+  The explanations below each section cover the lines in both screenshots.
 
 | PID | Process |
 |---|---|
@@ -77,9 +85,19 @@ All screenshots come from one session on an Android 17 (API 37) emulator, with `
 
 ## 1. Cold start
 
-![Cold start: from the launcher tap to "Fully drawn", marked step by step](docs/cold-start-steps.png)
+![Cold start with Android's lines only: the request, the new process, the APK, the first frame](docs/cold-start-system.png)
+
+The system shows the request (1), the new process (2), the app's APK being loaded (4) and the first frame
+(✓). Step 3, the rest of Step 4 and all of Step 5 happen inside the app and write no system line.
+
+<details>
+<summary><b>Show it with <code>| tag=:LaunchDemo</code></b>: the same moment, plus the app's own marks</summary>
+
+![Cold start with LaunchDemo: from the launcher tap to "Fully drawn", marked step by step](docs/cold-start-steps.png)
 
 Red **1–5** are the steps. Amber **3** is the main loop, inside the call paths. Green **✓**: the app is on screen.
+
+</details>
 
 ### Step 1 · Launch request
 
@@ -217,7 +235,17 @@ separate Binder thread. That thread only puts a message in the main thread's que
 
 ## 2. Rotate the screen
 
-![Rotation: the Activity is destroyed and created again in the same process](docs/rotation-steps.png)
+![Rotation with Android's lines only: a single line, the new window's surface](docs/rotation-system.png)
+
+A single line: the new window gets its surface. Without the app's own marks, you can't see that the
+Activity was destroyed and created again.
+
+<details>
+<summary><b>Show it with <code>| tag=:LaunchDemo</code></b>: the same moment, plus the app's own marks</summary>
+
+![Rotation with LaunchDemo: the Activity is destroyed and created again in the same process](docs/rotation-steps.png)
+
+</details>
 
 There is no `START` line: nobody asked to start an Activity. ATMS sees the new screen orientation and sends
 the app one transaction: *relaunch this Activity*.
@@ -247,7 +275,17 @@ Activity**. The saved state is what `rememberSaveable` and `SavedStateHandle` ke
 
 ## 3. Press Home
 
-![The Home button sends the app to the background: HOME, PAUSE, STOP](docs/home-steps.png)
+![Home with Android's lines only: the launcher starts and comes back on top](docs/home-system.png)
+
+Home is just another Activity start, and the launcher's window is back on top. The app itself writes
+nothing: its `onPause()` and `onStop()` are invisible.
+
+<details>
+<summary><b>Show it with <code>| tag=:LaunchDemo</code></b>: the same moment, plus the app's own marks</summary>
+
+![Home with LaunchDemo: HOME, PAUSE, STOP](docs/home-steps.png)
+
+</details>
 
 - **HOME · `ActivityTaskManager` · `START u0 {act=…MAIN cat=[android.intent.category.HOME] …}`** — Pressing
   Home is just another Activity start: the system starts the launcher's HOME Activity. The launcher is already
@@ -271,7 +309,16 @@ adb shell 'cat /proc/$(pidof eu.anifantakis.myapplication)/oom_score_adj'
 
 ## 4. Open it again: hot start
 
-![The app comes back from the background: TAP, SNAP, RESUME](docs/hot-start-steps.png)
+![Hot start with Android's lines only: the tap, the snapshot, the new surface](docs/hot-start-system.png)
+
+The tap, the snapshot and the new surface. No `Start proc` and no Zygote line: the process is still alive.
+
+<details>
+<summary><b>Show it with <code>| tag=:LaunchDemo</code></b>: the same moment, plus the app's own marks</summary>
+
+![Hot start with LaunchDemo: TAP, SNAP, RESUME](docs/hot-start-steps.png)
+
+</details>
 
 - **TAP · `ActivityTaskManager` · `START u0 {…LAUNCHER…}`** and **`StatsLog` · `LAUNCHER_APP_LAUNCH_TAP`** —
   The same request as in a cold start.
@@ -301,7 +348,20 @@ To see a warm start, turn on **Developer options › Don't keep activities**, pr
 
 ## 5. Swipe it away in Recents
 
-![The app is swiped away in Recents and its process is killed: RECENTS, SWIPE, DESTROY, KILL, GONE](docs/kill-steps.png)
+![Swipe with Android's lines only: Recents, the swipe, the kill, the death report](docs/kill-system.png)
+
+Recents, the swipe, the kill and the death report. From these lines alone, it looks as if the process was
+simply killed.
+
+<details>
+<summary><b>Show it with <code>| tag=:LaunchDemo</code></b>: the same moment, plus the app's own marks</summary>
+
+![Swipe with LaunchDemo: RECENTS, SWIPE, DESTROY, KILL, GONE](docs/kill-steps.png)
+
+The app's marks show what happened first: the Activity was paused, stopped and **destroyed** before AMS
+killed the empty process.
+
+</details>
 
 - **RECENTS · `WindowManager` · `setClientSurface … NexusLauncherActivity`** — The Recents button was pressed.
   The launcher, which shows Recents, is on top again.
@@ -352,11 +412,11 @@ With `showPath = true`, it also writes the call path:
 
 ```kotlin
 private fun callPath(): String = Throwable().stackTrace
-    .filter { f -> keep.any { f.className.startsWith(it) } && !f.className.startsWith(LaunchTrace::class.java.name) }
-    .map { "${it.className.substringAfterLast('.')}.${it.methodName}" }
-    .distinct()
-    .reversed()
-    .joinToString("\n") { "      ↳ $it" }
+  .filter { f -> keep.any { f.className.startsWith(it) } && !f.className.startsWith(LaunchTrace::class.java.name) }
+  .map { "${it.className.substringAfterLast('.')}.${it.methodName}" }
+  .distinct()
+  .reversed()
+  .joinToString("\n") { "      ↳ $it" }
 ```
 
 It takes the current stack trace (without throwing), keeps only the frames in the `keep` list (Zygote,
