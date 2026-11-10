@@ -33,7 +33,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Path = Step 5: H.handleMessage → TransactionExecutor → LaunchActivityItem → performLaunchActivity → … → onCreate
-        LaunchTrace.mark("Activity.onCreate", showPath = true)
+        // "saved state? true" = the Activity is being re-created (rotation, or a warm start)
+        LaunchTrace.mark("Activity.onCreate — saved state? ${savedInstanceState != null}", showPath = true)
         enableEdgeToEdge()
         setContent {
             var loaded by remember { mutableStateOf(false) }
@@ -60,6 +61,14 @@ class MainActivity : ComponentActivity() {
     override fun onResume()  { super.onResume();  LaunchTrace.mark("Activity.onResume — window attached? ${window.decorView.isAttachedToWindow}") }
     override fun onPause()   { LaunchTrace.mark("Activity.onPause"); super.onPause() }
     override fun onStop()    { LaunchTrace.mark("Activity.onStop — surface will be released"); super.onStop() }
+
+    // Never printed when the process is killed (swipe, force stop, low memory).
+    // Printed when the system destroys only the Activity: rotation, finish(), "Don't keep activities".
+    override fun onDestroy() {
+        LaunchTrace.mark("Activity.onDestroy — config change? $isChangingConfigurations · finishing? $isFinishing", showPath = true)
+        super.onDestroy()
+    }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus); LaunchTrace.mark("onWindowFocusChanged($hasFocus)")
     }
