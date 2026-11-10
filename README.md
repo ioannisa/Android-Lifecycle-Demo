@@ -4,20 +4,6 @@ A small app that shows what happens to an app process during its life: **cold st
 hot start, and death**. The app logs each step with the tag `LaunchDemo`. One Logcat filter mixes these
 lines with Android's own lines, in order.
 
-## How to run it
-
-1. Run the app once from Android Studio. This installs it.
-2. Paste the [Logcat filter](#logcat-filter) into Logcat.
-3. Stop the app: `adb shell am force-stop eu.anifantakis.myapplication`
-4. Clear Logcat.
-5. Tap the app icon → **cold start**.
-6. Rotate the screen → **the Activity is re-created**.
-7. Press Home → **background**.
-8. Tap the icon again → **hot start**.
-9. Open Recents and swipe the app away → **killed**.
-
-> Tap the icon instead of pressing Run. Run reinstalls the app and starts it from the shell, not from the launcher.
-
 ## Logcat filter
 
 ```
@@ -26,43 +12,6 @@ lines with Android's own lines, in order.
 
 It uses only Android's own lines, so it works for any app. Add ` | tag=:LaunchDemo` at the end to also see
 this app's marks.
-
-What each part catches, and where you see it:
-
-| Filter part | Lines it catches | Where |
-|---|---|---|
-| `StatsLog` | `LAUNCHER_APP_LAUNCH_TAP`, `LAUNCHER_TASK_DISMISS_SWIPE_UP` (the launcher's own lines) | 1, 4, 5 |
-| `ActivityTaskManager` | `START`, `Displayed`, `Fully drawn` / `Force removing` | 1, 3, 4 / force stop |
-| `ActivityManager` | `Start proc`, `Killing` / `Force stopping`, `Got obituary` | 1, 5 / force stop |
-| `Zygote` | `Forked child process`, `Process … created for`, `Process … exited` | 1, 5 |
-| `libprocessgroup` | `Created cgroup`, `Removed cgroup` | 1, 5 |
-| `WindowManager` | `setClientSurface` / `WIN DEATH` | 1–5 / force stop |
-| `CollectorType` | The first line the new process writes under its own name | 1 |
-| `nativeloader` | `Configuring clns-…`: the class loader for the app's APK | 1 |
-| `LaunchDemo` (optional) | This app's own marks: every lifecycle callback, some with a call path | 1–5 |
-
-> Keep Logcat at Verbose. The `StatsLog` lines come from Pixel Launcher. Other launchers may not write them.
-
-## How to read a Logcat line
-
-```
-22956-22956   libprocessgroup   zygote64   I   Created cgroup /sys/fs/cgroup/apps/uid_10233/pid_22956
-└── PID-TID ┘   └─── tag ────┘   process  level └──────────────────── message ─────────────────────┘
-```
-
-- **PID-TID** — the process ID and the thread ID. When both are the same, the line comes from the process's
-  main thread. This column tells you **who** wrote the line.
-- **Tag** — a short label chosen by the code that wrote the line, usually the name of the component.
-- **Process** — the name Android Studio shows for that PID. A brand-new process can still show `zygote64`,
-  because it starts as a copy of Zygote.
-- **Level** — `V` verbose, `D` debug, `I` info, `W` warning, `E` error.
-- **Message** — the text. The `↳` lines under a `LaunchDemo` line are part of the same message: its call path.
-- `PROCESS STARTED` and `PROCESS ENDED` are not from the device. Android Studio adds them when it sees the
-  app's process appear or disappear.
-
-> **Note:** We removed Logcat's date-and-time column from the left side of the screenshots, so that more
-> of each line fits on screen and the text stays readable. The timings in this README come from the full
-> Logcat output. The app's own `LaunchDemo` lines still show their time as `+…ms`.
 
 ## Who is who
 
