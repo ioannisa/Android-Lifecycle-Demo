@@ -17,13 +17,13 @@ this app's marks.
 
 All screenshots come from one session on an Android 17 (API 37) emulator.
 
-Each section shows **two screenshots of the same moment**:
+Each section shows **two screenshots of the same moment**, one under the other:
 
-- **First, Android's lines only** — the filter as it is. This is what you see for **any app**, with no code
-  in it. Gray `⋯` rows mark where the app's callbacks run without writing any system line.
-- **Then, in an expandable block, the same moment with `| tag=:LaunchDemo`** — plus this app's own marks.
-  They fill the gaps: the `Application`, the providers and every Activity callback, with their call paths.
-  The explanations below each section cover the lines in both screenshots.
+- **Log without `| tag=:LaunchDemo`** — the filter as it is: Android's own lines, the same for every app.
+- **Log with `| tag=:LaunchDemo`** — the same lines, plus the marks this demo app writes from its own code:
+  the `Application`, the providers and every Activity callback, with their call paths.
+
+Below them, **Line by line** explains every line in both screenshots.
 
 | PID | Process |
 |---|---|
@@ -34,21 +34,28 @@ Each section shows **two screenshots of the same moment**:
 
 ## 1. Cold start
 
+### Log without `| tag=:LaunchDemo`
+
+*Note: this is the default log. You get the same lines for every app, with no code in it.
+Gray `⋯` rows mark where the app runs code that writes no system line.*
+
 ![Cold start with Android's lines only: the request, the new process, the APK, the first frame](docs/cold-start-system.png)
+
+### Log with `| tag=:LaunchDemo`
+
+*Note: this adds the marks that this demo app writes from its own code. Your app does not write them,
+so you will not see them in your app's log.*
+
+![Cold start with LaunchDemo: from the launcher tap to "Fully drawn", marked step by step](docs/cold-start-steps.png)
 
 The system shows the request (1), the new process (2), the app's APK being loaded (4) and the first frame
 (✓). Step 3, the rest of Step 4 and all of Step 5 happen inside the app and write no system line.
 
-<details>
-<summary><b>Show it with <code>| tag=:LaunchDemo</code></b>: the same moment, plus the app's own marks</summary>
-
-![Cold start with LaunchDemo: from the launcher tap to "Fully drawn", marked step by step](docs/cold-start-steps.png)
-
 Red **1–5** are the steps. Amber **3** is the main loop, inside the call paths. Green **✓**: the app is on screen.
 
-</details>
+### Line by line
 
-### Step 1 · Launch request
+#### Step 1 · Launch request
 
 - **`ActivityTaskManager` · `START u0 {act=…MAIN cat=[…LAUNCHER] … cmp=eu.anifantakis.myapplication/.MainActivity}`**
   (system_server) — The launcher called `startActivity()`. The call crossed into `system_server` through
@@ -59,7 +66,7 @@ Red **1–5** are the steps. Amber **3** is the main loop, inside the call paths
   It comes *after* `START`, because `startActivity()` is a synchronous Binder call: the launcher waits until
   ATMS is done, and only then writes its line.
 
-### Step 2 · The identity: create the process
+#### Step 2 · The identity: create the process
 
 - **`Zygote` · `Forked child process 22956`** (Zygote, `433-433`) — Zygote forks itself. The child is a copy
   of Zygote: it shares Zygote's memory (Copy-on-Write), so the fork is fast.
@@ -121,7 +128,7 @@ after `START`. With a pool, based on the Zygote source:
 From Step 3 on, nothing changes. To check a device: `adb shell getprop | grep usap` and
 `adb shell ps -A | grep usap`.
 
-### Step 3 · The heartbeat (amber box)
+#### Step 3 · The heartbeat (amber box)
 
 There is no system line for this step. The proof is the first part of the call path under
 `Application.attachBaseContext`:
@@ -138,7 +145,7 @@ There is no system line for this step. The proof is the first part of the call p
 There are **no Binder frames** here. When the system calls the app through Binder, the call arrives on a
 separate Binder thread. That thread only puts a message in the main thread's queue.
 
-### Step 4 · The DNA: bindApplication
+#### Step 4 · The DNA: bindApplication
 
 - *Not in the log:* AMS answers "I'm alive" with `bindApplication()`. It arrives as a message for `H`.
 - **`nativeloader` · `Configuring clns-9 for other apk /data/app/…/base.apk. target_sdk_version=37, …`**
@@ -158,7 +165,7 @@ separate Binder thread. That thread only puts a message in the main thread's que
   start before your own code.
 - **`LaunchDemo` · `▶ Application.onCreate`** (`+301ms`) — Your own initialization, before any Activity exists.
 
-### Step 5 · The face: launch the Activity
+#### Step 5 · The face: launch the Activity
 
 - *Not in the log:* AMS tells ATMS that the process is ready. ATMS sends the app a *transaction* through
   Binder: "create this Activity, then resume it".
@@ -172,7 +179,7 @@ separate Binder thread. That thread only puts a message in the main thread's que
 - **`LaunchDemo` · `▶ Activity.onStart`** and **`▶ Activity.onResume — window attached? false`** — The
   Activity is resumed, but its window is not on screen yet.
 
-### ✓ · On screen
+#### ✓ · On screen
 
 - **`WindowManager` · `setClientSurface … MainActivity`** (system_server) — The Activity's window gets its
   surface, a few hundred ms **after** `onResume()`.
@@ -184,17 +191,24 @@ separate Binder thread. That thread only puts a message in the main thread's que
 
 ## 2. Rotate the screen
 
+### Log without `| tag=:LaunchDemo`
+
+*Note: this is the default log. You get the same lines for every app, with no code in it.
+Gray `⋯` rows mark where the app runs code that writes no system line.*
+
 ![Rotation with Android's lines only: a single line, the new window's surface](docs/rotation-system.png)
+
+### Log with `| tag=:LaunchDemo`
+
+*Note: this adds the marks that this demo app writes from its own code. Your app does not write them,
+so you will not see them in your app's log.*
+
+![Rotation with LaunchDemo: the Activity is destroyed and created again in the same process](docs/rotation-steps.png)
 
 A single line: the new window gets its surface. Without the app's own marks, you can't see that the
 Activity was destroyed and created again.
 
-<details>
-<summary><b>Show it with <code>| tag=:LaunchDemo</code></b>: the same moment, plus the app's own marks</summary>
-
-![Rotation with LaunchDemo: the Activity is destroyed and created again in the same process](docs/rotation-steps.png)
-
-</details>
+### Line by line
 
 There is no `START` line: nobody asked to start an Activity. ATMS sees the new screen orientation and sends
 the app one transaction: *relaunch this Activity*.
@@ -224,17 +238,24 @@ Activity**. The saved state is what `rememberSaveable` and `SavedStateHandle` ke
 
 ## 3. Press Home
 
+### Log without `| tag=:LaunchDemo`
+
+*Note: this is the default log. You get the same lines for every app, with no code in it.
+Gray `⋯` rows mark where the app runs code that writes no system line.*
+
 ![Home with Android's lines only: the launcher starts and comes back on top](docs/home-system.png)
+
+### Log with `| tag=:LaunchDemo`
+
+*Note: this adds the marks that this demo app writes from its own code. Your app does not write them,
+so you will not see them in your app's log.*
+
+![Home with LaunchDemo: HOME, PAUSE, STOP](docs/home-steps.png)
 
 Home is just another Activity start, and the launcher's window is back on top. The app itself writes
 nothing: its `onPause()` and `onStop()` are invisible.
 
-<details>
-<summary><b>Show it with <code>| tag=:LaunchDemo</code></b>: the same moment, plus the app's own marks</summary>
-
-![Home with LaunchDemo: HOME, PAUSE, STOP](docs/home-steps.png)
-
-</details>
+### Line by line
 
 - **HOME · `ActivityTaskManager` · `START u0 {act=…MAIN cat=[android.intent.category.HOME] …}`** — Pressing
   Home is just another Activity start: the system starts the launcher's HOME Activity. The launcher is already
@@ -258,16 +279,23 @@ adb shell 'cat /proc/$(pidof eu.anifantakis.myapplication)/oom_score_adj'
 
 ## 4. Open it again: hot start
 
+### Log without `| tag=:LaunchDemo`
+
+*Note: this is the default log. You get the same lines for every app, with no code in it.
+Gray `⋯` rows mark where the app runs code that writes no system line.*
+
 ![Hot start with Android's lines only: the tap, the snapshot, the new surface](docs/hot-start-system.png)
 
-The tap, the snapshot and the new surface. No `Start proc` and no Zygote line: the process is still alive.
+### Log with `| tag=:LaunchDemo`
 
-<details>
-<summary><b>Show it with <code>| tag=:LaunchDemo</code></b>: the same moment, plus the app's own marks</summary>
+*Note: this adds the marks that this demo app writes from its own code. Your app does not write them,
+so you will not see them in your app's log.*
 
 ![Hot start with LaunchDemo: TAP, SNAP, RESUME](docs/hot-start-steps.png)
 
-</details>
+The tap, the snapshot and the new surface. No `Start proc` and no Zygote line: the process is still alive.
+
+### Line by line
 
 - **TAP · `ActivityTaskManager` · `START u0 {…LAUNCHER…}`** and **`StatsLog` · `LAUNCHER_APP_LAUNCH_TAP`** —
   The same request as in a cold start.
@@ -297,20 +325,27 @@ To see a warm start, turn on **Developer options › Don't keep activities**, pr
 
 ## 5. Swipe it away in Recents
 
+### Log without `| tag=:LaunchDemo`
+
+*Note: this is the default log. You get the same lines for every app, with no code in it.
+Gray `⋯` rows mark where the app runs code that writes no system line.*
+
 ![Swipe with Android's lines only: Recents, the swipe, the kill, the death report](docs/kill-system.png)
+
+### Log with `| tag=:LaunchDemo`
+
+*Note: this adds the marks that this demo app writes from its own code. Your app does not write them,
+so you will not see them in your app's log.*
+
+![Swipe with LaunchDemo: RECENTS, SWIPE, DESTROY, KILL, GONE](docs/kill-steps.png)
 
 Recents, the swipe, the kill and the death report. From these lines alone, it looks as if the process was
 simply killed.
 
-<details>
-<summary><b>Show it with <code>| tag=:LaunchDemo</code></b>: the same moment, plus the app's own marks</summary>
-
-![Swipe with LaunchDemo: RECENTS, SWIPE, DESTROY, KILL, GONE](docs/kill-steps.png)
-
 The app's marks show what happened first: the Activity was paused, stopped and **destroyed** before AMS
 killed the empty process.
 
-</details>
+### Line by line
 
 - **RECENTS · `WindowManager` · `setClientSurface … NexusLauncherActivity`** — The Recents button was pressed.
   The launcher, which shows Recents, is on top again.
@@ -361,11 +396,11 @@ With `showPath = true`, it also writes the call path:
 
 ```kotlin
 private fun callPath(): String = Throwable().stackTrace
-  .filter { f -> keep.any { f.className.startsWith(it) } && !f.className.startsWith(LaunchTrace::class.java.name) }
-  .map { "${it.className.substringAfterLast('.')}.${it.methodName}" }
-  .distinct()
-  .reversed()
-  .joinToString("\n") { "      ↳ $it" }
+    .filter { f -> keep.any { f.className.startsWith(it) } && !f.className.startsWith(LaunchTrace::class.java.name) }
+    .map { "${it.className.substringAfterLast('.')}.${it.methodName}" }
+    .distinct()
+    .reversed()
+    .joinToString("\n") { "      ↳ $it" }
 ```
 
 It takes the current stack trace (without throwing), keeps only the frames in the `keep` list (Zygote,
