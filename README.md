@@ -4,8 +4,16 @@
 
 Companion demo for the talk ***The Android Internals Deep Dive — Context, Binder IPC, Zygote***.
 
-**This is not another lifecycle demo.** It shows what happens *below* the lifecycle: how Android creates an
-app process. You tap an icon, and Logcat lets you follow the journey through the system:
+> **IMPORTANT: This is not another lifecycle demo.**
+>
+> It shows what happens *below* the lifecycle: how Android OS handles the creation an app process. 
+> 
+> You tap an icon, and Logcat lets you follow the journey through the system logs.
+>
+> You will see the lifecycle too, as a bonus: the callbacks show *when* each step reaches your code. But the
+> talk and this repo are about how Android creates an app process, brings the app back, and kills the process.
+
+Along the way, you see:
 
 - the launcher's request reaching **ATMS** inside `system_server`, through a **Binder** call,
 - **AMS** asking **Zygote** for a new process, through Zygote's socket,
@@ -16,8 +24,7 @@ app process. You tap an icon, and Logcat lets you follow the journey through the
 
 Most of what you see are Android's own log lines, written by `system_server` and Zygote: you get the same
 lines for **any app**. A few marks from this demo app (tag `LaunchDemo`) fill the gaps that Android does
-not log. The lifecycle callbacks appear too, but only as landmarks: they show *when* each internal step
-reaches your code.
+not log.
 
 After the cold start, the same filter follows the process through a rotation, the background and a hot
 start, where you can see what does **not** happen: no fork, no new process. At the end, the system kills
